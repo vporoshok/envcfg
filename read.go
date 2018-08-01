@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// Read environment into struct
 func Read(v interface{}, opts ...Option) error {
 	cfg := readConfig{}
 	for _, opt := range opts {
