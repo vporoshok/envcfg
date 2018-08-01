@@ -4,6 +4,9 @@ import (
 	"strings"
 )
 
+// SplitWords split string to words
+//
+// JSON42_File42An42dSO42ME_More -> JSON42, File42, An42d, SO42ME, More
 func SplitWords(s string) []string {
 	var res []string
 
