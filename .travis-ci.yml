@@ -1,0 +1,16 @@
+language: go
+
+go:
+  - "1.10"
+
+install:
+  - go get -u golang.org/x/lint/golint
+  - go get -u honnef.co/go/tools/...
+  - go get -t ./...
+
+script:
+  - golint -set_exit_status ./...
+  - megacheck ./...
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
