@@ -1,54 +1,16 @@
 package envcfg
 
 import (
-	"fmt"
 	"os"
-	"reflect"
-	"strconv"
 	"strings"
-	"time"
+
+	"github.com/vporoshok/reflector"
 )
-
-const (
-	// InvalidObjectType returned if object passed to processing is not pointer to struct
-	InvalidObjectType constantError = "expected pointer to struct"
-	// InvalidFieldType returned if some field has unsupported type
-	InvalidFieldType constantError = "unsupported type"
-)
-
-type constantError string
-
-func (ce constantError) Error() string {
-
-	return string(ce)
-}
-
-func (ce constantError) New(msg string) error {
-
-	return causedError{
-		err: ce,
-		msg: msg,
-	}
-}
-
-type causedError struct {
-	err error
-	msg string
-}
-
-func (ce causedError) Error() string {
-
-	return fmt.Sprintf("%s: %s", ce.msg, ce.err.Error())
-}
-
-func (ce causedError) Cause() error {
-
-	return ce.err
-}
 
 type readConfig struct {
 	prefix     string
 	useDefault bool
+	overrides  map[string]string
 }
 
 // Option to configure environment read
@@ -73,10 +35,11 @@ func WithPrefix(prefix string) Option {
 }
 
 // WithDefault add read default values from tags before read environment
-func WithDefault() Option {
+func WithDefault(overrides map[string]string) Option {
 
 	return funcOption(func(cfg *readConfig) {
 		cfg.useDefault = true
+		cfg.overrides = overrides
 	})
 }
 
@@ -86,170 +49,48 @@ func Read(v interface{}, opts ...Option) error {
 	for _, opt := range opts {
 		opt.apply(&cfg)
 	}
-
-	s := reflect.ValueOf(v)
-	if err := checkType(s); err != nil {
-
-		return err
-	}
-
+	r := reflector.New(v)
 	if cfg.useDefault {
-		if err := applyDefault(s); err != nil {
+		if err := applyDefault(r, cfg.overrides); err != nil {
 
 			return err
 		}
 	}
 
-	m := getTagMap(s.Elem().Type(), "envcfg")
-
+	m := r.ExtractTags("envcfg", reflector.WithoutMinus())
 	for k, v := range m {
-		if v == "-" {
-			delete(m, k)
-
-			continue
-		}
 		if len(v) == 0 {
 			v = strings.ToUpper(strings.Join(SplitWords(k), "_"))
 		}
-		m[k] = os.Getenv(cfg.prefix + v)
-		if len(m[k]) == 0 && len(cfg.prefix) > 0 {
-			m[k] = os.Getenv(v)
+		var ok bool
+		m[k], ok = os.LookupEnv(cfg.prefix + v)
+		if !ok && len(cfg.prefix) > 0 {
+			m[k], ok = os.LookupEnv(v)
 		}
-		if len(m[k]) == 0 {
+		if !ok {
 			delete(m, k)
 
 			continue
 		}
 	}
 
-	return applyMap(s, m)
+	return r.Apply(m)
 }
 
 // Default read and parse values from struct tag `default:"some value"`
-func Default(v interface{}) error {
-	s := reflect.ValueOf(v)
-	if err := checkType(s); err != nil {
+func Default(v interface{}, overrides map[string]string) error {
+	r := reflector.New(v)
 
-		return err
-	}
-
-	return applyDefault(s)
+	return applyDefault(r, overrides)
 }
 
-func applyDefault(s reflect.Value) error {
-	t := s.Elem().Type()
-	m := getTagMap(t, "default")
-
-	return applyMap(s, m)
-}
-
-func checkType(s reflect.Value) error {
-	if s.Kind() == reflect.Ptr && s.Elem().Kind() == reflect.Struct {
-
-		return nil
+func applyDefault(r reflector.Reflector, overrides map[string]string) error {
+	m := r.ExtractTags("default", reflector.WithoutEmpty())
+	for k, v := range overrides {
+		m[k] = v
 	}
 
-	return InvalidObjectType
-}
-
-func getTagMap(t reflect.Type, tagName string) map[string]string {
-	res := make(map[string]string, t.NumField())
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		res[f.Name] = f.Tag.Get(tagName)
-	}
-
-	return res
-}
-
-func applyMap(s reflect.Value, m map[string]string) error {
-	s = s.Elem()
-	for k, v := range m {
-		if v == "" {
-
-			continue
-		}
-		f := s.FieldByName(k)
-		if err := processValue(f, v); err != nil {
-
-			return err
-		}
-	}
-
-	return nil
-}
-
-func processValue(s reflect.Value, v string) error {
-	t := s.Type()
-
-	switch s.Kind() {
-	default:
-
-		return InvalidFieldType.New(s.Kind().String())
-
-	case reflect.String:
-		s.SetString(v)
-
-		return nil
-
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		if s.Kind() == reflect.Int64 && t.PkgPath() == "time" && t.Name() == "Duration" {
-			d, err := time.ParseDuration(v)
-			if err != nil {
-
-				return err
-			}
-			s.SetInt(int64(d))
-
-			return nil
-		}
-
-		d, err := strconv.ParseInt(v, 0, t.Bits())
-		if err != nil {
-
-			return err
-		}
-
-		s.SetInt(d)
-
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		d, err := strconv.ParseUint(v, 0, t.Bits())
-		if err != nil {
-
-			return err
-		}
-		s.SetUint(d)
-
-	case reflect.Bool:
-		d, err := strconv.ParseBool(v)
-		if err != nil {
-
-			return err
-		}
-		s.SetBool(d)
-
-	case reflect.Float32, reflect.Float64:
-		d, err := strconv.ParseFloat(v, t.Bits())
-		if err != nil {
-
-			return err
-		}
-		s.SetFloat(d)
-
-	case reflect.Slice:
-		vals := strings.Split(v, ",")
-		sl := reflect.MakeSlice(t, len(vals), len(vals))
-		for i, val := range vals {
-			err := processValue(sl.Index(i), val)
-			if err != nil {
-
-				return err
-			}
-		}
-		s.Set(sl)
-	}
-
-	return nil
+	return r.Apply(m)
 }
 
 // SplitWords split string to words
@@ -266,6 +107,7 @@ func SplitWords(s string) []string {
 	return res
 }
 
+// nolint:gocyclo
 func splitChunk(chunk string) []string {
 	const (
 		unknown = iota
@@ -286,9 +128,9 @@ func splitChunk(chunk string) []string {
 	prev := unknown
 	for i := len(chunk) - 1; i >= 0; i-- {
 		c := chunk[i]
-		word.WriteByte(c)
+		_ = word.WriteByte(c)
 
-		switch true {
+		switch {
 		case isUpper(c):
 			if prev == lower {
 				res = append(res, reverseString(word.String()))
@@ -308,7 +150,7 @@ func splitChunk(chunk string) []string {
 				w := word.String()
 				res = append(res, reverseString(w[:len(w)-1]))
 				word.Reset()
-				word.WriteByte(c)
+				_ = word.WriteByte(c)
 			}
 
 			prev = lower
@@ -325,7 +167,7 @@ func splitChunk(chunk string) []string {
 func reverseString(s string) string {
 	res := &strings.Builder{}
 	for i := len(s) - 1; i >= 0; i-- {
-		res.WriteByte(s[i])
+		_ = res.WriteByte(s[i])
 	}
 
 	return res.String()

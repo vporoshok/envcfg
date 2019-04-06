@@ -7,31 +7,40 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
+	"github.com/vporoshok/envcfg"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/vporoshok/envcfg"
 )
 
 func ExampleDefault() {
-	type Config struct {
+	type StdConfig struct {
 		S string `default:"foo"`
-		N int    `default:"42"`
-		B bool   `default:"true"`
+		R string `default:"buz"`
+	}
+	type Config struct {
+		StdConfig
+		N int  `default:"42"`
+		B bool `default:"true"`
 	}
 
 	cfg := Config{}
 
-	envcfg.Default(&cfg)
+	envcfg.Default(&cfg, map[string]string{
+		"R": "baz",
+	})
 
 	fmt.Println(cfg)
 }
 
 func TestDefault(t *testing.T) {
+	type StdConfig struct {
+		S string `default:"foo"`
+		N int    `default:"42"`
+		B bool   `default:"true"`
+	}
 	type Config struct {
-		S string        `default:"foo"`
-		N int           `default:"42"`
-		B bool          `default:"true"`
+		StdConfig
 		D time.Duration `default:"1m"`
 		F float64       `default:"36.6"`
 		L []int         `default:"1,2,3,4"`
@@ -39,8 +48,8 @@ func TestDefault(t *testing.T) {
 
 	cfg := Config{}
 
-	require.NoError(t, envcfg.Default(&cfg))
-	assert.Equal(t, "foo", cfg.S)
+	require.NoError(t, envcfg.Default(&cfg, map[string]string{"S": "bar"}))
+	assert.Equal(t, "bar", cfg.S)
 	assert.Equal(t, 42, cfg.N)
 	assert.Equal(t, true, cfg.B)
 	assert.Equal(t, time.Minute, cfg.D)
@@ -48,21 +57,20 @@ func TestDefault(t *testing.T) {
 	assert.EqualValues(t, []int{1, 2, 3, 4}, cfg.L)
 }
 
-func TestDefaultInvalidType(t *testing.T) {
-	require.EqualError(t, envcfg.Default(struct{}{}), envcfg.InvalidObjectType.Error())
-}
-
 func ExampleRead() {
-	cfg := struct {
+	type StdConfig struct {
 		Debug   bool
 		Default string `default:"foo"`
-		Number  uint32
 		HostIP  string
+	}
+	cfg := struct {
+		StdConfig
+		Number  uint32
 		VH      string `envcfg:"VH_NAME"`
 		Exclude string `envcfg:"-"`
 	}{}
 
-	err := envcfg.Read(&cfg, envcfg.WithDefault(), envcfg.WithPrefix("PREFIX42_"))
+	err := envcfg.Read(&cfg, envcfg.WithDefault(map[string]string{"Debug": "true"}), envcfg.WithPrefix("PREFIX42_"))
 	if err != nil {
 
 		log.Fatal(err)
@@ -75,13 +83,16 @@ func TestRead(t *testing.T) {
 	os.Setenv("PREFIX42_DEBUG", "true")
 	os.Setenv("PREFIX42_NUMBER", "42")
 	os.Setenv("HOST_IP", "1.1.1.1")
-	os.Setenv("PREFIX42_VH_NAME", "someVH")
+	os.Setenv("PREFIX42_VH_NAME", "someVH VH")
 
-	cfg := struct {
+	type StdConfig struct {
 		Debug   bool
 		Default string `default:"foo"`
-		Number  uint32
 		HostIP  string
+	}
+	cfg := struct {
+		StdConfig
+		Number  uint32
 		VH      string `envcfg:"VH_NAME"`
 		Exclude string `envcfg:"-"`
 		private string
@@ -90,26 +101,17 @@ func TestRead(t *testing.T) {
 		private: "bar",
 	}
 
-	require.NoError(t, envcfg.Read(&cfg, envcfg.WithDefault(), envcfg.WithPrefix("PREFIX42_")))
+	require.NoError(t, envcfg.Read(&cfg,
+		envcfg.WithDefault(map[string]string{"Exclude": "default"}),
+		envcfg.WithPrefix("PREFIX42_"),
+	))
 	assert.Equal(t, true, cfg.Debug)
 	assert.Equal(t, "foo", cfg.Default)
 	assert.EqualValues(t, 42, cfg.Number)
 	assert.Equal(t, "1.1.1.1", cfg.HostIP)
-	assert.Equal(t, "someVH", cfg.VH)
-	assert.Equal(t, "exclude", cfg.Exclude)
+	assert.Equal(t, "someVH VH", cfg.VH)
+	assert.Equal(t, "default", cfg.Exclude)
 	assert.Equal(t, "bar", cfg.private)
-}
-
-func TestReadInvalidObjectType(t *testing.T) {
-	require.EqualError(t, envcfg.Read(struct{}{}), envcfg.InvalidObjectType.Error())
-}
-
-func TestReadInvalidFieldType(t *testing.T) {
-	os.Setenv("PREFIX42_TEST", "true")
-	err := envcfg.Read(&struct{ Test interface{} }{}, envcfg.WithPrefix("PREFIX42_"))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "interface")
-	assert.Equal(t, envcfg.InvalidFieldType, errors.Cause(err))
 }
 
 func TestSplitWords(t *testing.T) {
@@ -145,6 +147,7 @@ func TestSplitWords(t *testing.T) {
 		},
 	}
 
+	// nolint:scopelint
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			res := envcfg.SplitWords(c.src)
