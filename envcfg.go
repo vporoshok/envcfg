@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/vporoshok/casey"
 	"github.com/vporoshok/reflector"
 )
 
@@ -60,7 +61,7 @@ func Read(v interface{}, opts ...Option) error {
 	m := r.ExtractTags("envcfg", reflector.WithoutMinus())
 	for k, v := range m {
 		if len(v) == 0 {
-			v = strings.ToUpper(strings.Join(SplitWords(k), "_"))
+			v = strings.ToUpper(casey.Camel(k).SNAKE())
 		}
 		var ok bool
 		m[k], ok = os.LookupEnv(cfg.prefix + v)
@@ -91,93 +92,4 @@ func applyDefault(r reflector.Reflector, overrides map[string]string) error {
 	}
 
 	return r.Apply(m)
-}
-
-// SplitWords split string to words
-//
-// JSON42_File42An42dSO42ME_More -> JSON42, File42, An42d, SO42ME, More
-func SplitWords(s string) []string {
-	var res []string
-
-	chunks := strings.Split(s, "_")
-	for _, chunk := range chunks {
-		res = append(res, splitChunk(chunk)...)
-	}
-
-	return res
-}
-
-// nolint:gocyclo
-func splitChunk(chunk string) []string {
-	const (
-		unknown = iota
-		lower
-		number
-		upper
-	)
-
-	isUpper := func(c byte) bool { return c >= 'A' && c <= 'Z' }
-	isNumber := func(c byte) bool { return c >= '0' && c <= '9' }
-
-	if len(chunk) == 0 {
-
-		return nil
-	}
-	var res []string
-	word := &strings.Builder{}
-	prev := unknown
-	for i := len(chunk) - 1; i >= 0; i-- {
-		c := chunk[i]
-		_ = word.WriteByte(c)
-
-		switch {
-		case isUpper(c):
-			if prev == lower {
-				res = append(res, reverseString(word.String()))
-				word.Reset()
-				prev = unknown
-
-				continue
-			}
-
-			prev = upper
-
-		case isNumber(c):
-			prev = number
-
-		default:
-			if prev == upper {
-				w := word.String()
-				res = append(res, reverseString(w[:len(w)-1]))
-				word.Reset()
-				_ = word.WriteByte(c)
-			}
-
-			prev = lower
-		}
-	}
-
-	if word.Len() > 0 {
-		res = append(res, reverseString(word.String()))
-	}
-
-	return reverseSlice(res)
-}
-
-func reverseString(s string) string {
-	res := &strings.Builder{}
-	for i := len(s) - 1; i >= 0; i-- {
-		_ = res.WriteByte(s[i])
-	}
-
-	return res.String()
-}
-
-func reverseSlice(s []string) []string {
-	res := make([]string, len(s))
-	for i := range res {
-		res[i] = s[len(s)-i-1]
-	}
-
-	return res
 }
