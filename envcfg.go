@@ -59,8 +59,7 @@ func Read(v interface{}, opts ...Option) error {
 	m := r.ExtractTags("envcfg", reflector.WithoutMinus())
 	for k, v := range m {
 		if v == "" {
-			tokens := casey.Camel(strings.ReplaceAll(k, ".", "_"))
-			v = strings.ToUpper(tokens.SNAKE())
+			v = fieldNameToEnvName(k)
 		}
 		var ok bool
 		m[k], ok = os.LookupEnv(cfg.prefix + v)
@@ -75,6 +74,14 @@ func Read(v interface{}, opts ...Option) error {
 	}
 
 	return r.Apply(m)
+}
+
+func fieldNameToEnvName(s string) string {
+	parts := strings.Split(s, ".")
+	for i := range parts {
+		parts[i] = casey.Camel(parts[i]).SNAKE()
+	}
+	return strings.Join(parts, "__")
 }
 
 // Default read and parse values from struct tag `default:"some value"`
