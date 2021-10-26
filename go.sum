@@ -9,6 +9,8 @@ github.com/kr/text v0.1.0 h1:45sCR5RtlFHMR4UwH9sdQ5TC8v0qDQCHnXt+kaKSTVE=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
 github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
+github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
+github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/satori/go.uuid v1.2.0 h1:0uYX9dsZ2yD7q2RtLRtPSdGDWzjeM3TbMJP9utgA0ww=
@@ -20,5 +22,7 @@ github.com/vporoshok/casey v0.1.0 h1:F6oAyErcNjTay8DiwocQEc7uaLDduieVl1BLiJ1OGC0
 github.com/vporoshok/casey v0.1.0/go.mod h1:BbYpk12q6l+GKF5cSnLlHMZCmMgY+Tq9CP/9VHm3F7Q=
 github.com/vporoshok/reflector v1.0.0 h1:LWjWr2gp3stJl33kt5gDDkiqlURWUKgBhYakWgwTSgU=
 github.com/vporoshok/reflector v1.0.0/go.mod h1:XBVArmRsFnBDQJwMHaUZIVMaCz0nYAJUbPgkFQ9o8xM=
+github.com/vporoshok/reflector v1.1.0 h1:YTPDtzIokI+IxJ2vs4/7XWti7MiBbh22h4wBxi1v0KY=
+github.com/vporoshok/reflector v1.1.0/go.mod h1:XBVArmRsFnBDQJwMHaUZIVMaCz0nYAJUbPgkFQ9o8xM=
 gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 h1:qIbj1fsPNlZgppZ+VLlY7N33q108Sa+fhmuc+sWQYwY=
 gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=

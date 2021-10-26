@@ -72,7 +72,6 @@ func ExampleRead() {
 
 	err := envcfg.Read(&cfg, envcfg.WithDefault(map[string]string{"Debug": "true"}), envcfg.WithPrefix("PREFIX42_"))
 	if err != nil {
-
 		log.Fatal(err)
 	}
 
@@ -112,4 +111,26 @@ func TestRead(t *testing.T) {
 	assert.Equal(t, "someVH VH", cfg.VH)
 	assert.Equal(t, "default", cfg.Exclude)
 	assert.Equal(t, "bar", cfg.private)
+}
+
+func TestSubconfig(t *testing.T) {
+	os.Setenv("INNER__FOO", "foo")
+	os.Setenv("BAR", "bar")
+
+	type InnerConfig struct {
+		Foo string
+		Bar string
+		Buz string `default:"yo"`
+	}
+	cfg := struct {
+		Inner InnerConfig
+	}{}
+
+	require.NoError(t, envcfg.Read(&cfg,
+		envcfg.WithDefault(nil),
+		envcfg.WithPrefix("PREFIX42_"),
+	))
+	assert.Equal(t, "foo", cfg.Inner.Foo)
+	assert.Equal(t, "", cfg.Inner.Bar)
+	assert.Equal(t, "yo", cfg.Inner.Buz)
 }

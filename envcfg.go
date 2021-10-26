@@ -14,7 +14,7 @@ type readConfig struct {
 	overrides  map[string]string
 }
 
-// Option to configure environment read
+// Option to configure environment read.
 type Option interface {
 	apply(*readConfig)
 }
@@ -27,41 +27,40 @@ func (fo funcOption) apply(cfg *readConfig) {
 
 // WithPrefix add prefix to read variable
 //
-// If PREFIX_VARNAME is not setted, try to read VARNAME without prefix
+// If PREFIX_VARNAME is not setted, try to read VARNAME without prefix.
 func WithPrefix(prefix string) Option {
-
 	return funcOption(func(cfg *readConfig) {
 		cfg.prefix = prefix
 	})
 }
 
-// WithDefault add read default values from tags before read environment
+// WithDefault add read default values from tags before read environment.
 func WithDefault(overrides map[string]string) Option {
-
 	return funcOption(func(cfg *readConfig) {
 		cfg.useDefault = true
 		cfg.overrides = overrides
 	})
 }
 
-// Read environment into struct
+// Read environment into struct.
 func Read(v interface{}, opts ...Option) error {
-	cfg := readConfig{}
+	var cfg readConfig
 	for _, opt := range opts {
 		opt.apply(&cfg)
 	}
+
 	r := reflector.New(v)
 	if cfg.useDefault {
 		if err := applyDefault(r, cfg.overrides); err != nil {
-
 			return err
 		}
 	}
 
 	m := r.ExtractTags("envcfg", reflector.WithoutMinus())
 	for k, v := range m {
-		if len(v) == 0 {
-			v = strings.ToUpper(casey.Camel(k).SNAKE())
+		if v == "" {
+			tokens := casey.Camel(strings.ReplaceAll(k, ".", "_"))
+			v = strings.ToUpper(tokens.SNAKE())
 		}
 		var ok bool
 		m[k], ok = os.LookupEnv(cfg.prefix + v)
